@@ -39,6 +39,13 @@
 
         <!-- Chart Container -->
         <div class="chart-wrapper">
+            <div class="chart-controls">
+                <button class="interval-btn active" data-interval="15m" data-range="5d">15m</button>
+                <button class="interval-btn" data-interval="60m" data-range="1mo">1H</button>
+                <button class="interval-btn" data-interval="1d" data-range="6mo">1D</button>
+                <button class="interval-btn" data-interval="1wk" data-range="2y">1W</button>
+                <button class="interval-btn" data-interval="1mo" data-range="5y">1M</button>
+            </div>
             <canvas id="stockChart"></canvas>
         </div>
     </div>

@@ -1,106 +1,141 @@
 :root {
-    --bg-color: #0d1117;
+    --bg-dark: #0d1117;
     --card-bg: #161b22;
-    --text-primary: #f0f6fc;
+    --text-primary: #c9d1d9;
     --text-secondary: #8b949e;
-    --accent-color: #58a6ff;
-    --border-color: #30363d;
-    --hover-color: #1f242c;
-    --success-color: #2ea043;
-    --font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    --accent: #58a6ff;
+    --border: #30363d;
+    --hover: #21262d;
+    --success: #2ea043;
+    --danger: #da3633;
 }
 
 body {
-    margin: 0;
-    padding: 0;
-    font-family: var(--font-family);
-    background-color: var(--bg-color);
+    background-color: var(--bg-dark);
     color: var(--text-primary);
+    font-family: 'Inter', sans-serif;
+    margin: 0;
+    padding: 20px;
+    height: 100vh;
+    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    height: 100vh;
-    overflow: hidden;
 }
 
 header {
-    padding: 1rem 2rem;
-    background-color: var(--card-bg);
-    border-bottom: 1px solid var(--border-color);
     display: flex;
-    align-items: center;
     justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
 h1 {
     margin: 0;
-    font-size: 1.25rem;
+    font-size: 24px;
     font-weight: 600;
-    letter-spacing: -0.025em;
 }
 
-.dashboard-container {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    padding: 1rem;
-    gap: 1rem;
+.subtitle {
+    color: var(--text-secondary);
+    font-size: 14px;
+    margin-top: 5px;
 }
 
-.tabs-container {
+.controls {
     display: flex;
-    gap: 0.5rem;
-    padding: 0.5rem;
-    background-color: var(--card-bg);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
+    gap: 10px;
+}
+
+button {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    padding: 8px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: all 0.2s;
+}
+
+button:hover {
+    border-color: var(--text-secondary);
+    background: var(--hover);
+}
+
+.tabs {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
     overflow-x: auto;
+    padding-bottom: 5px;
 }
 
 .tab-btn {
-    background: transparent;
-    border: 1px solid transparent;
-    color: var(--text-secondary);
-    padding: 0.5rem 1rem;
-    border-radius: 6px;
-    cursor: pointer;
-    font-weight: 500;
-    font-size: 0.875rem;
-    transition: all 0.2s ease;
     white-space: nowrap;
 }
 
-.tab-btn:hover {
-    color: var(--text-primary);
-    background-color: var(--hover-color);
+.tab-btn.active,
+.interval-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
 }
 
-.tab-btn.active {
-    background-color: rgba(88, 166, 255, 0.1);
-    color: var(--accent-color);
-    border-color: rgba(88, 166, 255, 0.2);
+/* Chart Container */
+.container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
 }
 
 .chart-wrapper {
     flex: 1;
-    background-color: var(--card-bg);
-    border-radius: 8px;
-    border: 1px solid var(--border-color);
-    overflow: hidden;
     position: relative;
-    /* Ensure widget takes full height */
-    display: flex;
-    flex-direction: column;
+    width: 100%;
+    overflow: hidden;
 }
 
-/* Custom Chart Container */
-#chart {
+/* Overlay Controls */
+.chart-controls {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10;
+    display: flex;
+    gap: 5px;
+    background: rgba(22, 27, 34, 0.8);
+    padding: 5px;
+    border-radius: 6px;
+    backdrop-filter: blur(4px);
+    border: 1px solid var(--border);
+}
+
+.interval-btn {
+    padding: 4px 10px;
+    font-size: 12px;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+}
+
+.interval-btn:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.interval-btn.active {
+    background: rgba(88, 166, 255, 0.2);
+    color: var(--accent);
+    border: 1px solid var(--accent);
+}
+
+canvas {
+    display: block;
     width: 100%;
     height: 100%;
-}
-
-footer {
-    padding: 0.5rem 2rem;
-    font-size: 0.75rem;
-    color: var(--text-secondary);
-    text-align: center;
 }
