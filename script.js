@@ -62,16 +62,49 @@ function generateMockData() {
     return data;
 }
 
-// Fetch Data - FORCED MOCK FOR LOCAL PROTOTYPE
+// Fetch Data from Yahoo Finance via AllOrigins Proxy (Bypasses CORS)
 async function fetchStockData(ticker) {
-    // In a real app with a backend, we would fetch(url).
-    // For local file:// execution, this is blocked by CORS.
-    // We force mock data here to demonstrate the UI.
-    return new Promise(resolve => {
-        setTimeout(() => {
-            resolve(generateMockData());
-        }, 100);
-    });
+    try {
+        console.log(`Fetching data for ${ticker}...`);
+
+        // Yahoo Finance API URL
+        const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=15m&range=5d`;
+        // AllOrigins Proxy to allow cross-origin requests
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
+
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error(`Network response was not ok: ${response.status}`);
+
+        const json = await response.json();
+
+        if (!json.chart || !json.chart.result || json.chart.result.length === 0) {
+            throw new Error("Invalid API response format");
+        }
+
+        const result = json.chart.result[0];
+        const quote = result.indicators.quote[0];
+        const timestamps = result.timestamp;
+
+        if (!timestamps || !quote.open) {
+            throw new Error("No data available for this symbol");
+        }
+
+        const data = timestamps.map((t, i) => ({
+            time: t,
+            open: quote.open[i],
+            high: quote.high[i],
+            low: quote.low[i],
+            close: quote.close[i]
+        })).filter(d => d.open != null && d.close != null); // Filter incomplete candles
+
+        return data;
+
+    } catch (error) {
+        console.error("Fetch failed:", error);
+        // If fetch fails (API down/rate limit), show an empty chart or alert rather than fake data
+        // to respect the user's wish for 'real' data.
+        return [];
+    }
 }
 
 // Initialize Chart
