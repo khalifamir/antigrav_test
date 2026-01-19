@@ -44,7 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Switch to Index Mode
             toggleBtn.textContent = "Switch to Top 5 Stocks";
             tabsContainer.style.display = 'none';
-            loadWidget("FTSEMYX:FBMKLCI");
+            // Try Bursa Malaysia Exchange prefix directly
+            loadWidget("MYX:FBMKLCI");
         } else {
             // Switch to Top 5 Mode
             toggleBtn.textContent = "Switch to Top 30 Index";
