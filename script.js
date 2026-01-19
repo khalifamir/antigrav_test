@@ -148,7 +148,7 @@ function render() {
     // We render from right to left conceptually, but slice normally
     // index 0 of data is OLD, index length-1 is NEW.
     // We want to show [end - offset - count] to [end - offset]
-    const endIndex = chartData.length - viewState.offset;
+    const endIndex = Math.floor(chartData.length - viewState.offset);
     const startIndex = Math.max(0, endIndex - visibleCandlesCount - 1); // -1 for padding
 
     const visibleData = chartData.slice(startIndex, endIndex);
@@ -384,11 +384,10 @@ function setupInteraction() {
 
         if (viewState.isDragging) {
             const dx = x - viewState.dragStartX;
-            // Use the candleWidth from when drag started for consistent panning
-            const candlesMoved = Math.round(dx / viewState.dragStartCandleWidth);
-            // new offset = old offset + candlesMoved
-            // (Dragging Right -> shows older data, so offset increases)
-            viewState.offset = viewState.dragStartOffset + candlesMoved;
+            // Invert: drag LEFT (negative dx) = see OLDER data (increase offset)
+            // drag RIGHT (positive dx) = see NEWER data (decrease offset)
+            const candlesMoved = -dx / viewState.dragStartCandleWidth;
+            viewState.offset = Math.max(0, viewState.dragStartOffset + candlesMoved);
             render();
         } else {
             viewState.crosshair = { x, y, visible: true };
