@@ -412,6 +412,31 @@ function setupInteraction() {
         viewState.crosshair.visible = false;
         render(); // clear crosshair
     });
+
+    // Zoom (Wheel)
+    canvas.addEventListener('wheel', e => {
+        e.preventDefault();
+
+        const zoomIntensity = 0.1;
+        const delta = Math.sign(e.deltaY);
+
+        // Zoom IN (Scroll Up, delta < 0) -> Increase width
+        // Zoom OUT (Scroll Down, delta > 0) -> Decrease width
+
+        let newWidth = viewState.candleWidth;
+        if (delta < 0) {
+            newWidth = viewState.candleWidth * (1 + zoomIntensity);
+        } else {
+            newWidth = viewState.candleWidth * (1 - zoomIntensity);
+        }
+
+        // Clamp
+        if (newWidth < 2) newWidth = 2;       // Max Zoom Out (~2px candles)
+        if (newWidth > 100) newWidth = 100;   // Max Zoom In
+
+        viewState.candleWidth = newWidth;
+        render();
+    }, { passive: false });
 }
 
 // ---------------------------------------------------------
