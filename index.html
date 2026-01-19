@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MY Top 5 Market Cap</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- TradingView Widget Script -->
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body>
+    <header>
+        <h1>Bursa Malaysia Top 5 (Market Cap)</h1>
+        <div style="font-size: 0.875rem; color: var(--text-secondary);">15 Min Chart</div>
+    </header>
+
+    <div class="dashboard-container">
+        <!-- Tabs -->
+        <div class="tabs-container" id="tabs">
+            <!-- Tabs will be injected by JS or hardcoded, let's hardcode for simplicity as requested -->
+            <button class="tab-btn active" data-symbol="MYX:MAYBANK">Maybank</button>
+            <button class="tab-btn" data-symbol="MYX:PBBANK">Public Bank</button>
+            <button class="tab-btn" data-symbol="MYX:CIMB">CIMB</button>
+            <button class="tab-btn" data-symbol="MYX:TENAGA">Tenaga</button>
+            <button class="tab-btn" data-symbol="MYX:PCHEM">P. Chemicals</button>
+        </div>
+
+        <!-- Chart Container -->
+        <div class="chart-wrapper">
+            <div id="tradingview_widget_container"></div>
+        </div>
+    </div>
+
+    <footer>
+        Data provided by TradingView Widget. Not for trading purposes.
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
