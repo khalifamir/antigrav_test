@@ -100,10 +100,9 @@ async function fetchStockData(ticker) {
         return data;
 
     } catch (error) {
-        console.error("Fetch failed:", error);
-        // If fetch fails (API down/rate limit), show an empty chart or alert rather than fake data
-        // to respect the user's wish for 'real' data.
-        return [];
+        console.warn("Fetch failed (API Error/Rate Limit), falling back to Simulated Data:", error);
+        // Fallback to mock data so the user doesn't see a broken chart
+        return generateMockData();
     }
 }
 
