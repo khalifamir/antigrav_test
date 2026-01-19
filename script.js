@@ -75,8 +75,9 @@ async function fetchStockData(symbolKey, interval, range) {
         return data;
 
     } catch (e) {
-        console.warn("Fallback data used");
-        return generateFallbackData(interval);
+        console.error(`Fetch failed for ${ticker}:`, e);
+        // User explicitly requested NO MOCK DATA.
+        return [];
     }
 }
 
