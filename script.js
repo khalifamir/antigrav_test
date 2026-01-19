@@ -260,6 +260,49 @@ function render() {
     });
 
     // ----------------------
+    // Current Price Line & Label
+    // ----------------------
+    if (chartData.length > 0) {
+        const lastCandle = chartData[chartData.length - 1];
+        const currentPrice = lastCandle.close;
+        const cpY = getY(currentPrice);
+
+        // Only draw if within reasonable bounds
+        if (cpY >= -50 && cpY <= H + 50) {
+            // Line
+            ctx.strokeStyle = "#58a6ff"; // Blue accent
+            ctx.setLineDash([2, 2]);
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(layout.padding.left, cpY);
+            ctx.lineTo(W - layout.padding.right, cpY);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // Label
+            ctx.fillStyle = "#58a6ff";
+            const labelH = 20;
+            const labelY = Math.max(0, Math.min(H - labelH, cpY - labelH / 2)); // Clamp to screen vert
+
+            // Draw axis badge
+            ctx.beginPath();
+            ctx.moveTo(W - layout.padding.right, cpY);
+            ctx.lineTo(W - layout.padding.right + 5, labelY);
+            ctx.lineTo(W, labelY);
+            ctx.lineTo(W, labelY + labelH);
+            ctx.lineTo(W - layout.padding.right + 5, labelY + labelH);
+            ctx.closePath();
+            ctx.fill();
+
+            // Text
+            ctx.fillStyle = "#ffffff";
+            ctx.textAlign = "left";
+            ctx.font = "bold 11px Inter";
+            ctx.fillText(currentPrice.toFixed(2), W - layout.padding.right + 8, labelY + 14);
+        }
+    }
+
+    // ----------------------
     // Crosshair
     // ----------------------
     if (viewState.crosshair.visible) {
