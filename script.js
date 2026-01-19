@@ -8,12 +8,10 @@ let chartData = [];
 // Interactive State
 let viewState = {
     offset: 0,      // How many candles shifted from the right
-    pixelOffset: 0, // Pixel-based offset for smooth panning
     candleWidth: 10,
     isDragging: false,
     dragStartX: 0,
-    dragStartPixelOffset: 0,
-    dragStartCandleWidth: 10,
+    dragStartOffset: 0,
     crosshair: { x: -1, y: -1, visible: false }
 };
 
@@ -171,9 +169,9 @@ function render() {
     const getY = (price) => {
         return layout.padding.top + plotH - ((price - minP) / safeRange) * plotH;
     };
-    // Helper: Map Index to X (pixels) - includes pixel offset for smooth panning
+    // Helper: Map Index to X (pixels)
     const getX = (i) => {
-        return layout.padding.left + (i * viewState.candleWidth) + viewState.pixelOffset;
+        return layout.padding.left + (i * viewState.candleWidth);
     };
 
     // ----------------------
@@ -395,8 +393,7 @@ function setupInteraction() {
         viewState.isDragging = true;
         const rect = canvas.getBoundingClientRect();
         viewState.dragStartX = e.clientX - rect.left;
-        viewState.dragStartPixelOffset = viewState.pixelOffset;
-        viewState.dragStartCandleWidth = viewState.candleWidth;
+        viewState.dragStartOffset = viewState.offset;
         canvas.style.cursor = "grabbing";
     });
 
