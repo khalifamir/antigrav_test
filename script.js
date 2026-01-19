@@ -12,6 +12,7 @@ let viewState = {
     isDragging: false,
     dragStartX: 0,
     dragStartOffset: 0,
+    dragStartCandleWidth: 10, // Capture width at drag start for consistent panning
     crosshair: { x: -1, y: -1, visible: false }
 };
 
@@ -383,10 +384,10 @@ function setupInteraction() {
 
         if (viewState.isDragging) {
             const dx = x - viewState.dragStartX;
-            // delta candles
-            const candlesMoved = Math.round(dx / viewState.candleWidth);
+            // Use the candleWidth from when drag started for consistent panning
+            const candlesMoved = Math.round(dx / viewState.dragStartCandleWidth);
             // new offset = old offset + candlesMoved
-            // (Dragging Right -> moves simpler past, so offset increases)
+            // (Dragging Right -> shows older data, so offset increases)
             viewState.offset = viewState.dragStartOffset + candlesMoved;
             render();
         } else {
@@ -400,6 +401,7 @@ function setupInteraction() {
         const rect = canvas.getBoundingClientRect();
         viewState.dragStartX = e.clientX - rect.left;
         viewState.dragStartOffset = viewState.offset;
+        viewState.dragStartCandleWidth = viewState.candleWidth; // Capture current width
         canvas.style.cursor = "grabbing";
     });
 
