@@ -20,14 +20,15 @@ const layout = {
     padding: { top: 20, right: 60, bottom: 30, left: 10 }
 };
 
-// Top 5 Market Cap + Index
+// Top 5 Market Cap + Index + Comparison
 const stocks = {
     "MYX:MAYBANK": { name: "Maybank", ticker: "1155.KL" },
     "MYX:PBBANK": { name: "Public Bank", ticker: "1295.KL" },
     "MYX:CIMB": { name: "CIMB Group", ticker: "1023.KL" },
     "MYX:TENAGA": { name: "Tenaga Nasional", ticker: "5347.KL" },
     "MYX:PCHEM": { name: "Petronas Chemicals", ticker: "5183.KL" },
-    "FTSEMYX:FBMKLCI": { name: "FBM KLCI Index", ticker: "^KLSE" }
+    "FTSEMYX:FBMKLCI": { name: "FBM KLCI Index", ticker: "^KLSE" },
+    "SPX": { name: "S&P 500", ticker: "^GSPC" }
 };
 
 // ---------------------------------------------------------
@@ -482,5 +483,125 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Comparison Mode
+    document.getElementById('compare-toggle').addEventListener('click', async function () {
+        // Hide tabs and intervals
+        document.getElementById('tabs').style.display = 'none';
+        document.querySelector('.chart-controls').style.display = 'none';
+
+        // Fetch both indices (1 year daily data for comparison)
+        const sp500Data = await fetchStockData("SPX", "1d", "1y");
+        const klciData = await fetchStockData("FTSEMYX:FBMKLCI", "1d", "1y");
+
+        // Draw comparison chart
+        drawComparisonChart(sp500Data, klciData);
+    });
+
     window.addEventListener('resize', render);
 });
+
+// Comparison Chart Renderer
+function drawComparisonChart(sp500Data, klciData) {
+    const canvas = document.getElementById('stockChart');
+    const ctx = canvas.getContext('2d');
+
+    // Resize
+    const container = canvas.parentElement;
+    const dpr = window.devicePixelRatio || 1;
+    const rect = container.getBoundingClientRect();
+    canvas.width = rect.width * dpr;
+    canvas.height = rect.height * dpr;
+    ctx.scale(dpr, dpr);
+    canvas.style.width = `${rect.width}px`;
+    canvas.style.height = `${rect.height}px`;
+
+    const W = rect.width;
+    const H = rect.height;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#161b22";
+    ctx.fillRect(0, 0, W, H);
+
+    if (sp500Data.length === 0 || klciData.length === 0) {
+        ctx.fillStyle = "#8b949e";
+        ctx.fillText("Loading comparison data...", W / 2 - 60, H / 2);
+        return;
+    }
+
+    // Normalize to percentage returns (base = 100)
+    const sp500Normalized = sp500Data.map((d, i) => ({
+        time: d.time,
+        value: (d.close / sp500Data[0].close) * 100
+    }));
+
+    const klciNormalized = klciData.map((d, i) => ({
+        time: d.time,
+        value: (d.close / klciData[0].close) * 100
+    }));
+
+    // Find min/max for Y axis
+    const allValues = [...sp500Normalized.map(d => d.value), ...klciNormalized.map(d => d.value)];
+    const minVal = Math.min(...allValues) * 0.99;
+    const maxVal = Math.max(...allValues) * 1.01;
+    const range = maxVal - minVal;
+
+    const plotW = W - 80;
+    const plotH = H - 60;
+    const getY = (val) => 40 + plotH - ((val - minVal) / range) * plotH;
+    const getX = (i, total) => 40 + (i / (total - 1)) * plotW;
+
+    // Draw grid
+    ctx.strokeStyle = "#30363d";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    for (let i = 0; i <= 5; i++) {
+        const y = 40 + (plotH / 5) * i;
+        ctx.moveTo(40, y);
+        ctx.lineTo(W - 40, y);
+    }
+    ctx.stroke();
+
+    // Draw S&P 500 line (Blue)
+    ctx.beginPath();
+    ctx.strokeStyle = "#58a6ff";
+    ctx.lineWidth = 2;
+    sp500Normalized.forEach((d, i) => {
+        const x = getX(i, sp500Normalized.length);
+        const y = getY(d.value);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Draw KLCI line (Green)
+    ctx.beginPath();
+    ctx.strokeStyle = "#2ea043";
+    ctx.lineWidth = 2;
+    klciNormalized.forEach((d, i) => {
+        const x = getX(i, klciNormalized.length);
+        const y = getY(d.value);
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    // Labels
+    ctx.fillStyle = "#c9d1d9";
+    ctx.font = "14px Inter";
+    ctx.fillText("S&P 500 vs FBM KLCI - 1 Year Performance (Base = 100)", 40, 25);
+
+    ctx.font = "12px Inter";
+    ctx.fillStyle = "#58a6ff";
+    ctx.fillText("■ S&P 500", W - 150, 25);
+    ctx.fillStyle = "#2ea043";
+    ctx.fillText("■ FBM KLCI", W - 150, 45);
+
+    // Y-axis labels
+    ctx.fillStyle = "#8b949e";
+    ctx.textAlign = "right";
+    for (let i = 0; i <= 5; i++) {
+        const val = minVal + (range / 5) * i;
+        const y = 40 + plotH - (plotH / 5) * i;
+        ctx.fillText(val.toFixed(1), 35, y + 4);
+    }
+}
