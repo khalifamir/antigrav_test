@@ -8,11 +8,12 @@ let chartData = [];
 // Interactive State
 let viewState = {
     offset: 0,      // How many candles shifted from the right
+    pixelOffset: 0, // Pixel-based offset for smooth panning
     candleWidth: 10,
     isDragging: false,
     dragStartX: 0,
-    dragStartOffset: 0,
-    dragStartCandleWidth: 10, // Capture width at drag start for consistent panning
+    dragStartPixelOffset: 0,
+    dragStartCandleWidth: 10,
     crosshair: { x: -1, y: -1, visible: false }
 };
 
@@ -385,10 +386,12 @@ function setupInteraction() {
 
         if (viewState.isDragging) {
             const dx = x - viewState.dragStartX;
-            // Invert: drag LEFT (negative dx) = see OLDER data (increase offset)
-            // drag RIGHT (positive dx) = see NEWER data (decrease offset)
-            const candlesMoved = -dx / viewState.dragStartCandleWidth;
-            viewState.offset = Math.max(0, viewState.dragStartOffset + candlesMoved);
+            // Direct pixel-based panning (1:1 with mouse movement)
+            // Drag RIGHT = positive dx = see OLDER data (increase pixel offset)
+            viewState.pixelOffset = viewState.dragStartPixelOffset + dx;
+
+            // Convert pixel offset to candle offset for data slicing
+            viewState.offset = Math.max(0, -viewState.pixelOffset / viewState.candleWidth);
             render();
         } else {
             viewState.crosshair = { x, y, visible: true };
@@ -400,8 +403,8 @@ function setupInteraction() {
         viewState.isDragging = true;
         const rect = canvas.getBoundingClientRect();
         viewState.dragStartX = e.clientX - rect.left;
-        viewState.dragStartOffset = viewState.offset;
-        viewState.dragStartCandleWidth = viewState.candleWidth; // Capture current width
+        viewState.dragStartPixelOffset = viewState.pixelOffset;
+        viewState.dragStartCandleWidth = viewState.candleWidth;
         canvas.style.cursor = "grabbing";
     });
 
