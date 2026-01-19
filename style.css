@@ -92,16 +92,10 @@ h1 {
     flex-direction: column;
 }
 
-/* TradingView Widget Container specific styling */
-#tradingview_widget_container {
-    flex: 1;
-    height: 100%;
+/* Custom Chart Container */
+#chart {
     width: 100%;
-}
-
-.tradingview-widget-container {
-    height: 100% !important;
-    width: 100% !important;
+    height: 100%;
 }
 
 footer {
