@@ -171,17 +171,9 @@ function render() {
     const getY = (price) => {
         return layout.padding.top + plotH - ((price - minP) / safeRange) * plotH;
     };
-    // Helper: Map Index to X (pixels)
-    // We map 'i' relative to valid visible range
+    // Helper: Map Index to X (pixels) - includes pixel offset for smooth panning
     const getX = (i) => {
-        // Absolute index in original array
-        const absIndex = startIndex + i;
-        // Position relative to the *end* of the chart area 
-        // Logic: The last candle (chartData.length-1) should be at [Right Edge - offset * width]
-        // But simpler: map visible subset.
-        // Let's stick to standard: x starts at left + padding
-        const posInView = i;
-        return layout.padding.left + (posInView * viewState.candleWidth);
+        return layout.padding.left + (i * viewState.candleWidth) + viewState.pixelOffset;
     };
 
     // ----------------------
