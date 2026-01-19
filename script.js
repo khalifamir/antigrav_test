@@ -1,31 +1,53 @@
 // Global State
 let currentSymbol = 'MYX:MAYBANK';
-let currentInterval = '15m';
+let currentInterval = '15m'; // 15m, 60m, 1d, 1wk, 1mo
 let currentRange = '5d';
 let stockCache = {};
+let chartData = [];
 
-// Top 5 Stock Data + Index
+// Interactive State
+let viewState = {
+    offset: 0,      // How many candles shifted from the right
+    candleWidth: 10,
+    isDragging: false,
+    dragStartX: 0,
+    dragStartOffset: 0,
+    crosshair: { x: -1, y: -1, visible: false }
+};
+
+// Layout Config
+const layout = {
+    padding: { top: 20, right: 60, bottom: 30, left: 10 }
+};
+
+// Top 5 Market Cap + Index
 const stocks = {
-    "MYX:MAYBANK": { name: "Malayan Banking Berhad", ticker: "1155.KL" },
-    "MYX:PBBANK": { name: "Public Bank Berhad", ticker: "1295.KL" },
-    "MYX:CIMB": { name: "CIMB Group Holdings", ticker: "1023.KL" },
-    "MYX:TENAGA": { name: "Tenaga Nasional Berhad", ticker: "5347.KL" },
-    "MYX:PCHEM": { name: "Petronas Chemicals Group", ticker: "5183.KL" },
+    "MYX:MAYBANK": { name: "Maybank", ticker: "1155.KL" },
+    "MYX:PBBANK": { name: "Public Bank", ticker: "1295.KL" },
+    "MYX:CIMB": { name: "CIMB Group", ticker: "1023.KL" },
+    "MYX:TENAGA": { name: "Tenaga Nasional", ticker: "5347.KL" },
+    "MYX:PCHEM": { name: "Petronas Chemicals", ticker: "5183.KL" },
     "FTSEMYX:FBMKLCI": { name: "FBM KLCI Index", ticker: "^KLSE" }
 };
 
-// 1. Data Fetching
+// ---------------------------------------------------------
+// 1. DATA FETCHING (Unchanged logic, robust)
+// ---------------------------------------------------------
 async function fetchStockData(symbolKey, interval, range) {
     const stockInfo = stocks[symbolKey];
     const ticker = stockInfo.ticker;
     const cacheKey = `${ticker}_${interval}_${range}`;
 
     if (stockCache[cacheKey]) {
-        console.log(`Loading ${cacheKey} from cache...`);
         return stockCache[cacheKey];
     }
 
-    console.log(`Fetching ${ticker} (${interval})...`);
+    // Adjust candle width based on density
+    if (interval === '1d' || interval === '1wk') viewState.candleWidth = 15;
+    else viewState.candleWidth = 8;
+    viewState.offset = 0; // Reset view on load
+
+    console.log(`Fetching ${ticker}...`);
     try {
         const yahooUrl = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=${interval}&range=${range}`;
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(yahooUrl)}`;
@@ -35,60 +57,57 @@ async function fetchStockData(symbolKey, interval, range) {
 
         const json = await response.json();
         const result = json.chart.result?.[0];
-
         if (!result) throw new Error("Invalid structure");
 
         const quote = result.indicators.quote[0];
         const timestamps = result.timestamp;
 
-        // Process OHLC
         const data = timestamps.map((t, i) => ({
             time: t,
             open: quote.open[i],
             high: quote.high[i],
             low: quote.low[i],
             close: quote.close[i]
-        })).filter(d => d.open != null && d.close != null);
+        })).filter(d => d.open != null);
 
         stockCache[cacheKey] = data;
         return data;
 
     } catch (e) {
-        console.warn(`Fetch failed for ${ticker}:`, e);
+        console.warn("Fallback data used");
         return generateFallbackData(interval);
     }
 }
 
 function generateFallbackData(interval) {
+    // Robust fallback
     const data = [];
-    const now = Math.floor(Date.now() / 1000);
-    let step = 900; // 15m
-    if (interval === '60m') step = 3600;
+    let now = Math.floor(Date.now() / 1000);
+    let step = 900;
     if (interval === '1d') step = 86400;
 
     let price = 10.0;
-    for (let i = 0; i < 50; i++) {
-        const change = (Math.random() - 0.5) * 0.2;
-        const open = price;
-        const close = price + change;
-        const high = Math.max(open, close) + Math.abs(change) * 0.5;
-        const low = Math.min(open, close) - Math.abs(change) * 0.5;
-
-        data.push({
-            time: now - (50 - i) * step,
-            open, high, low, close
-        });
-        price = close;
+    for (let i = 0; i < 100; i++) {
+        let chg = (Math.random() - 0.5) * 0.2;
+        let o = price;
+        let c = o + chg;
+        let h = Math.max(o, c) + Math.random() * 0.1;
+        let l = Math.min(o, c) - Math.random() * 0.1;
+        data.push({ time: now - (100 - i) * step, open: o, high: h, low: l, close: c });
+        price = c;
     }
     return data;
 }
 
-// 2. Candlestick Renderer
-function drawChart(data) {
+// ---------------------------------------------------------
+// 2. CHART RENDERER (New Interactive Engine)
+// ---------------------------------------------------------
+function render() {
     const canvas = document.getElementById('stockChart');
+    if (!canvas) return;
     const ctx = canvas.getContext('2d');
 
-    // HiDPI Resizing
+    // Auto-Resize
     const container = canvas.parentElement;
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
@@ -99,140 +118,309 @@ function drawChart(data) {
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
 
-    const width = rect.width;
-    const height = rect.height;
+    const W = rect.width;
+    const H = rect.height;
 
     // Clear
-    ctx.clearRect(0, 0, width, height);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = "#161b22"; // Background
+    ctx.fillRect(0, 0, W, H);
 
-    if (data.length === 0) return;
+    if (chartData.length === 0) {
+        ctx.fillStyle = "#8b949e";
+        ctx.fillText("Loading or No Data...", W / 2 - 40, H / 2);
+        return;
+    }
 
-    // Calc Range
-    const allPrices = [];
-    data.forEach(d => { allPrices.push(d.low, d.high); });
-    const minPrice = Math.min(...allPrices) * 0.999;
-    const maxPrice = Math.max(...allPrices) * 1.001;
-    const range = maxPrice - minPrice;
+    // Dimensions
+    const plotW = W - layout.padding.left - layout.padding.right;
+    const plotH = H - layout.padding.top - layout.padding.bottom;
 
-    // Grid
-    drawGrid(ctx, width, height);
+    // Viewport Calculations
+    const visibleCandlesCount = Math.ceil(plotW / viewState.candleWidth);
+    const maxOffset = Math.max(0, chartData.length - visibleCandlesCount);
+    // Clamp offset
+    if (viewState.offset < 0) viewState.offset = 0;
+    if (viewState.offset > maxOffset) viewState.offset = maxOffset;
 
-    // Candles
-    const candleWidth = (width / data.length) * 0.7;
-    // Ensure minimal visibility
-    const finalCandleWidth = Math.max(candleWidth, 1);
+    // Slice visible data
+    // We render from right to left conceptually, but slice normally
+    // index 0 of data is OLD, index length-1 is NEW.
+    // We want to show [end - offset - count] to [end - offset]
+    const endIndex = chartData.length - viewState.offset;
+    const startIndex = Math.max(0, endIndex - visibleCandlesCount - 1); // -1 for padding
 
-    data.forEach((d, i) => {
-        const x = (i / (data.length)) * width + (width / data.length) / 2; // Center alignment
+    const visibleData = chartData.slice(startIndex, endIndex);
 
-        const yOpen = height - ((d.open - minPrice) / range) * height;
-        const yClose = height - ((d.close - minPrice) / range) * height;
-        const yHigh = height - ((d.high - minPrice) / range) * height;
-        const yLow = height - ((d.low - minPrice) / range) * height;
-
-        // Color
-        const isGreen = d.close >= d.open;
-        ctx.fillStyle = isGreen ? '#2ea043' : '#da3633'; // Green : Red
-        ctx.strokeStyle = ctx.fillStyle;
-
-        // Draw Wick
-        ctx.beginPath();
-        ctx.moveTo(x, yHigh);
-        ctx.lineTo(x, yLow);
-        ctx.stroke();
-
-        // Draw Body
-        // If close == open (doji), draw mild height
-        let bodyHeight = Math.abs(yClose - yOpen);
-        if (bodyHeight < 1) bodyHeight = 1;
-
-        const bodyTop = Math.min(yOpen, yClose);
-
-        ctx.fillRect(x - finalCandleWidth / 2, bodyTop, finalCandleWidth, bodyHeight);
+    // Calculate Min/Max Price for scaling (Auto-Scale Y)
+    let minP = Infinity, maxP = -Infinity;
+    visibleData.forEach(d => {
+        if (d.low < minP) minP = d.low;
+        if (d.high > maxP) maxP = d.high;
     });
+    // Add padding to price range
+    const range = maxP - minP;
+    minP -= range * 0.1;
+    maxP += range * 0.1;
+    const safeRange = maxP - minP || 1;
 
-    // Info Text
-    ctx.fillStyle = '#c9d1d9';
-    ctx.font = '12px Inter';
-    ctx.fillText(`${currentSymbol} (${currentInterval})`, 10, height - 10);
-    ctx.fillText(maxPrice.toFixed(2), width - 40, 15);
-    ctx.fillText(minPrice.toFixed(2), width - 40, height - 5);
-}
+    // Helper: Map Price to Y (pixels)
+    const getY = (price) => {
+        return layout.padding.top + plotH - ((price - minP) / safeRange) * plotH;
+    };
+    // Helper: Map Index to X (pixels)
+    // We map 'i' relative to valid visible range
+    const getX = (i) => {
+        // Absolute index in original array
+        const absIndex = startIndex + i;
+        // Position relative to the *end* of the chart area 
+        // Logic: The last candle (chartData.length-1) should be at [Right Edge - offset * width]
+        // But simpler: map visible subset.
+        // Let's stick to standard: x starts at left + padding
+        const posInView = i;
+        return layout.padding.left + (posInView * viewState.candleWidth);
+    };
 
-function drawGrid(ctx, w, h) {
-    ctx.strokeStyle = '#30363d';
-    ctx.lineWidth = 0.5;
+    // ----------------------
+    // Draw Grid & Axes
+    // ----------------------
+    ctx.strokeStyle = "#30363d";
+    ctx.lineWidth = 1;
+    ctx.font = "11px Inter";
+    ctx.fillStyle = "#8b949e";
+    ctx.textAlign = "right";
+
+    // Y Axis Grid
+    const gridRows = 5;
     ctx.beginPath();
-    // 4 horizontal lines
-    for (let i = 1; i < 5; i++) {
-        const y = (h / 5) * i;
-        ctx.moveTo(0, y);
-        ctx.lineTo(w, y);
+    for (let i = 0; i <= gridRows; i++) {
+        const val = minP + (safeRange * (i / gridRows));
+        const y = getY(val);
+
+        ctx.moveTo(layout.padding.left, y);
+        ctx.lineTo(W - layout.padding.right, y); // Grid line
+
+        // Label (Right Side)
+        ctx.fillText(val.toFixed(2), W - 5, y + 4);
     }
     ctx.stroke();
+
+    // X Axis Labels (Time)
+    ctx.textAlign = "center";
+    ctx.beginPath();
+    const xStep = Math.ceil(visibleData.length / 5); // Show ~5 labels
+    visibleData.forEach((d, i) => {
+        if (i % xStep === 0) {
+            const x = getX(i) + viewState.candleWidth / 2;
+            ctx.moveTo(x, layout.padding.top);
+            ctx.lineTo(x, H - layout.padding.bottom);
+
+            // Format Date
+            const date = new Date(d.time * 1000);
+            let label = "";
+            if (currentInterval.includes('m') || currentInterval.includes('h')) {
+                label = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } else {
+                label = date.toLocaleDateString([], { month: 'short', day: 'numeric' });
+            }
+            ctx.fillText(label, x, H - 10);
+        }
+    });
+    // ctx.stroke(); // Daintier grid for time? Maybe skip vertical lines to reduce clutter
+
+    // ----------------------
+    // Draw Candles
+    // ----------------------
+    const candleW = viewState.candleWidth * 0.8;
+    const wickW = Math.max(1, candleW * 0.1);
+
+    visibleData.forEach((d, i) => {
+        const xCenter = getX(i) + viewState.candleWidth / 2;
+        const yOpen = getY(d.open);
+        const yClose = getY(d.close);
+        const yHigh = getY(d.high);
+        const yLow = getY(d.low);
+
+        const isGreen = d.close >= d.open;
+        ctx.fillStyle = isGreen ? '#2ea043' : '#da3633';
+        ctx.strokeStyle = ctx.fillStyle;
+
+        // Wick
+        ctx.beginPath();
+        ctx.moveTo(xCenter, yHigh);
+        ctx.lineTo(xCenter, yLow);
+        ctx.stroke();
+
+        // Body
+        let hBody = Math.abs(yClose - yOpen);
+        if (hBody < 1) hBody = 1;
+        let yBody = Math.min(yOpen, yClose);
+
+        ctx.fillRect(xCenter - candleW / 2, yBody, candleW, hBody);
+    });
+
+    // ----------------------
+    // Crosshair
+    // ----------------------
+    if (viewState.crosshair.visible) {
+        const mx = viewState.crosshair.x;
+        const my = viewState.crosshair.y;
+
+        // Only draw if inside chart area
+        if (mx > layout.padding.left && mx < W - layout.padding.right &&
+            my > layout.padding.top && my < H - layout.padding.bottom) {
+
+            ctx.strokeStyle = "#8b949e";
+            ctx.setLineDash([4, 4]);
+            ctx.lineWidth = 1;
+
+            // Horizontal Line
+            ctx.beginPath();
+            ctx.moveTo(layout.padding.left, my);
+            ctx.lineTo(W - layout.padding.right, my);
+            ctx.stroke();
+
+            // Vertical Line
+            // Snap to closest candle
+            // Inverse X calc: i = (x - padding) / width
+            const relX = mx - layout.padding.left;
+            let index = Math.floor(relX / viewState.candleWidth);
+            if (index >= 0 && index < visibleData.length) {
+                const candle = visibleData[index];
+                const cx = getX(index) + viewState.candleWidth / 2;
+
+                // Vert Line
+                ctx.beginPath();
+                ctx.moveTo(cx, layout.padding.top);
+                ctx.lineTo(cx, H - layout.padding.bottom);
+                ctx.stroke();
+
+                ctx.setLineDash([]);
+
+                // --- Labels ---
+                const priceVal = minP + (1 - (my - layout.padding.top) / plotH) * safeRange;
+                const timeVal = new Date(candle.time * 1000).toLocaleString();
+
+                // Y-Label Box
+                ctx.fillStyle = "#30363d";
+                ctx.fillRect(W - layout.padding.right, my - 10, 55, 20);
+                ctx.fillStyle = "#fff";
+                ctx.textAlign = "left";
+                ctx.fillText(priceVal.toFixed(2), W - layout.padding.right + 5, my + 4);
+
+                // X-Label Box
+                const textW = ctx.measureText(timeVal).width + 10;
+                ctx.fillStyle = "#30363d";
+                ctx.fillRect(cx - textW / 2, H - 25, textW, 20);
+                ctx.fillStyle = "#fff";
+                ctx.textAlign = "center";
+                ctx.fillText(timeVal, cx, H - 10);
+
+                // Overlay Info (Top Left)
+                ctx.textAlign = "left";
+                ctx.fillStyle = "#c9d1d9";
+                const info = `O: ${candle.open.toFixed(2)}  H: ${candle.high.toFixed(2)}  L: ${candle.low.toFixed(2)}  C: ${candle.close.toFixed(2)}`;
+                ctx.fillText(info, layout.padding.left + 10, layout.padding.top + 15);
+            }
+        }
+    }
 }
 
-// 3. UI Logic
-async function loadView(symbolKey) {
-    currentSymbol = symbolKey;
-    const data = await fetchStockData(symbolKey, currentInterval, currentRange);
-    drawChart(data);
-}
+// ---------------------------------------------------------
+// 3. INTERACTION HANDLERS
+// ---------------------------------------------------------
+function setupInteraction() {
+    const canvas = document.getElementById('stockChart');
 
-document.addEventListener('DOMContentLoaded', () => {
-    // Initial Load
-    refresh();
+    // Mouse Move (Crosshair + Drag)
+    canvas.addEventListener('mousemove', e => {
+        const rect = canvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
 
-    // Resize
-    window.addEventListener('resize', refresh);
-
-    // Toggle Index View
-    const toggleBtn = document.getElementById('view-toggle');
-    const tabsContainer = document.getElementById('tabs');
-    let isIndexView = false;
-
-    toggleBtn.addEventListener('click', () => {
-        isIndexView = !isIndexView;
-        if (isIndexView) {
-            toggleBtn.textContent = "Switch to Top 5";
-            tabsContainer.style.display = 'none';
-            loadView("FTSEMYX:FBMKLCI");
+        if (viewState.isDragging) {
+            const dx = x - viewState.dragStartX;
+            // delta candles
+            const candlesMoved = Math.round(dx / viewState.candleWidth);
+            // new offset = old offset + candlesMoved
+            // (Dragging Right -> moves simpler past, so offset increases)
+            viewState.offset = viewState.dragStartOffset + candlesMoved;
+            render();
         } else {
-            toggleBtn.textContent = "Switch to Index";
-            tabsContainer.style.display = 'flex';
-            const activeTab = document.querySelector('.tab-btn.active');
-            const symbol = activeTab ? activeTab.getAttribute('data-symbol') : "MYX:MAYBANK";
-            loadView(symbol);
+            viewState.crosshair = { x, y, visible: true };
+            render();
         }
     });
 
-    // Tab Clicks
-    document.querySelectorAll('.tab-btn:not(#view-toggle)').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            if (isIndexView) return;
-            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-            loadView(e.target.getAttribute('data-symbol'));
-        });
+    canvas.addEventListener('mousedown', e => {
+        viewState.isDragging = true;
+        const rect = canvas.getBoundingClientRect();
+        viewState.dragStartX = e.clientX - rect.left;
+        viewState.dragStartOffset = viewState.offset;
+        canvas.style.cursor = "grabbing";
     });
 
-    // Interval Clicks
-    document.querySelectorAll('.interval-btn').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            // Update Active UI
-            document.querySelectorAll('.interval-btn').forEach(b => b.classList.remove('active'));
-            e.target.classList.add('active');
-
-            // Update State
-            currentInterval = e.target.getAttribute('data-interval');
-            currentRange = e.target.getAttribute('data-range');
-
-            // Reload Data
-            refresh();
-        });
+    const stopDrag = () => {
+        viewState.isDragging = false;
+        canvas.style.cursor = "crosshair";
+    };
+    window.addEventListener('mouseup', stopDrag);
+    canvas.addEventListener('mouseleave', () => {
+        viewState.crosshair.visible = false;
+        render(); // clear crosshair
     });
-});
-
-function refresh() {
-    loadView(currentSymbol);
 }
+
+// ---------------------------------------------------------
+// 4. APP LOGIC
+// ---------------------------------------------------------
+async function loadView(symbolKey) {
+    currentSymbol = symbolKey;
+    chartData = await fetchStockData(symbolKey, currentInterval, currentRange);
+    render();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    setupInteraction();
+    loadView("MYX:MAYBANK");
+
+    // UI Buttons
+    document.getElementById('view-toggle').addEventListener('click', function () {
+        // Toggle Logic
+        let isIndex = this.textContent.includes('Index'); // currently showing index?
+        // Wait, text says "Switch to..."
+        isIndex = this.textContent.includes('Top 5'); // If "Switch to Top 5", we ARE in Index
+
+        if (isIndex) {
+            // Switch to Normal
+            this.textContent = "Switch to Top 30 Index";
+            document.getElementById('tabs').style.display = 'flex';
+            loadView("MYX:MAYBANK");
+        } else {
+            // Switch to Index
+            this.textContent = "Switch to Top 5 Stocks";
+            document.getElementById('tabs').style.display = 'none';
+            loadView("FTSEMYX:FBMKLCI");
+        }
+    });
+
+    document.querySelectorAll('.tab-btn:not(#view-toggle)').forEach(b => {
+        b.addEventListener('click', (e) => {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            loadView(e.target.dataset.symbol);
+        });
+    });
+
+    document.querySelectorAll('.interval-btn').forEach(b => {
+        b.addEventListener('click', (e) => {
+            document.querySelectorAll('.interval-btn').forEach(btn => btn.classList.remove('active'));
+            e.target.classList.add('active');
+            currentInterval = e.target.dataset.interval;
+            currentRange = e.target.dataset.range;
+            loadView(currentSymbol);
+        });
+    });
+
+    window.addEventListener('resize', render);
+});
