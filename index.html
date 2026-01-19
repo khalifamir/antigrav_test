@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -12,10 +13,17 @@
     <!-- TradingView Widget Script -->
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
 </head>
+
 <body>
     <header>
-        <h1>Bursa Malaysia Top 5 (Market Cap)</h1>
-        <div style="font-size: 0.875rem; color: var(--text-secondary);">15 Min Chart</div>
+        <div>
+            <h1>Bursa Malaysia</h1>
+            <div style="font-size: 0.875rem; color: var(--text-secondary);">15 Min Chart</div>
+        </div>
+        <button id="view-toggle" class="tab-btn"
+            style="border: 1px solid var(--accent-color); color: var(--accent-color);">
+            Switch to Top 30 Index
+        </button>
     </header>
 
     <div class="dashboard-container">
@@ -41,4 +49,5 @@
 
     <script src="script.js"></script>
 </body>
+
 </html>
